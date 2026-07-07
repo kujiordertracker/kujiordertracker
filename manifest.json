@@ -1,6 +1,6 @@
 {
-  "name": "Prize Orders",
-  "short_name": "Prizes",
+  "name": "Kuji Order Tracker",
+  "short_name": "Kuji Orders",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#12151C",
