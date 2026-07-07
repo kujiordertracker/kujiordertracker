@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prize Orders</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Prize Orders">
+<meta name="theme-color" content="#12151C">
+<style>
+:root{
+  --bg:#12151C; --surface:#1C2130; --surface2:#242B3D; --line:#323B52;
+  --ink:#F2F0E9; --ink-dim:#9AA3B8;
+  --gold:#E8B84B; --rare:#C86BD9; --tg:#2AABEE; --danger:#E05C5C; --ok:#57C99B;
+  --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  min-height:100vh; padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+.wrap{max-width:480px;margin:0 auto;padding:14px 16px 40px}
+
+/* header */
+header{display:flex;align-items:center;justify-content:space-between;padding:6px 0 14px}
+h1{font-size:1.05rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+h1 .tick{color:var(--gold)}
+#gear{background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:10px;
+  padding:7px 12px;font-size:.85rem;cursor:pointer}
+
+/* fields */
+label{display:block;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ink-dim);margin:16px 0 6px}
+input[type=text],input[type=password],textarea{
+  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  color:var(--ink);padding:13px 14px;font-size:1rem;font-family:inherit;outline:none}
+input:focus,textarea:focus{border-color:var(--tg)}
+textarea{resize:vertical;min-height:74px}
+
+/* prize grid — kuji ticket chips */
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:2px}
+.chip{
+  position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:14px 0 12px;text-align:center;cursor:pointer;user-select:none;-webkit-user-select:none;
+  font-weight:800;font-size:1.15rem;letter-spacing:.03em;color:var(--ink);
+  border-left:4px solid var(--line);transition:transform .06s}
+.chip:active{transform:scale(.94);background:var(--surface2)}
+.chip.sp{border-left-color:var(--gold);color:var(--gold)}
+.chip.ssr{border-left-color:var(--rare);color:var(--rare)}
+.chip .n{
+  position:absolute;top:-7px;right:-7px;min-width:24px;height:24px;border-radius:12px;
+  background:var(--tg);color:#fff;font-size:.8rem;font-weight:800;line-height:24px;padding:0 6px;
+  display:none}
+.chip.has .n{display:block}
+.chip .minus{
+  position:absolute;bottom:-9px;right:-7px;width:24px;height:24px;border-radius:12px;
+  background:var(--surface2);border:1px solid var(--line);color:var(--ink-dim);
+  font-size:1rem;line-height:21px;display:none}
+.chip.has .minus{display:block}
+
+#tallyline{margin-top:12px;font-size:.95rem;color:var(--ink-dim);min-height:1.3em}
+#tallyline b{color:var(--ink)}
+
+/* buttons */
+.btn{display:block;width:100%;border:none;border-radius:var(--r);padding:15px;
+  font-size:1.02rem;font-weight:800;font-family:inherit;cursor:pointer;margin-top:18px}
+.btn-tg{background:var(--tg);color:#fff}
+.btn-tg:active{filter:brightness(.9)}
+.btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line);margin-top:10px}
+.btn:disabled{opacity:.5}
+
+/* order list */
+h2{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ink-dim);margin:30px 0 10px;display:flex;justify-content:space-between;align-items:center}
+h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weight:700;cursor:pointer;letter-spacing:normal;text-transform:none}
+.order{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:12px 14px;margin-bottom:9px}
+.order .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.order .name{font-weight:800;font-size:1rem}
+.order .time{font-size:.72rem;color:var(--ink-dim);white-space:nowrap}
+.order .prizes{margin-top:5px;font-size:.92rem}
+.order .rem{margin-top:4px;font-size:.85rem;color:var(--ink-dim);white-space:pre-wrap}
+.order .foot{display:flex;justify-content:space-between;align-items:center;margin-top:9px}
+.st{font-size:.76rem;font-weight:700}
+.st.sent{color:var(--ok)} .st.failed{color:var(--danger)} .st.pending{color:var(--ink-dim)}
+.acts{display:flex;gap:14px}
+.acts button{background:none;border:none;font-size:.78rem;font-weight:700;cursor:pointer;padding:2px}
+.a-retry{color:var(--danger)} .a-share{color:var(--tg)} .a-del{color:var(--ink-dim)}
+.empty{color:var(--ink-dim);font-size:.9rem;padding:18px 4px;text-align:center}
+
+/* settings view */
+.hidden{display:none!important}
+.hint{font-size:.78rem;color:var(--ink-dim);margin-top:6px;line-height:1.45}
+#testmsg{margin-top:10px;font-size:.85rem;min-height:1.3em}
+#testmsg.ok{color:var(--ok)} #testmsg.err{color:var(--danger)}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
+  background:var(--surface2);border:1px solid var(--line);color:var(--ink);
+  padding:10px 18px;border-radius:12px;font-size:.88rem;opacity:0;pointer-events:none;
+  transition:opacity .25s;max-width:90%;text-align:center;z-index:50}
+#toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="tick">▸</span> Prize Orders</h1>
+    <button id="gear">Settings</button>
+  </header>
+
+  <!-- ============ ORDER VIEW ============ -->
+  <main id="view-order">
+    <label for="cust">Customer</label>
+    <input type="text" id="cust" placeholder="Name / handle" autocomplete="off">
+
+    <label>Prizes — tap to add</label>
+    <div class="grid" id="grid"></div>
+    <div id="tallyline"></div>
+
+    <label for="remarks">Remarks</label>
+    <textarea id="remarks" placeholder="Payment, meetup, notes…"></textarea>
+
+    <button class="btn btn-tg" id="save">Save &amp; send to Telegram</button>
+
+    <h2>Orders on this phone
+      <button id="shareAll">Share all</button>
+    </h2>
+    <div id="list"></div>
+  </main>
+
+  <!-- ============ SETTINGS VIEW ============ -->
+  <main id="view-settings" class="hidden">
+    <label for="token">Bot token</label>
+    <input type="password" id="token" placeholder="123456:ABC-…" autocomplete="off">
+    <div class="hint">From @BotFather. Stored only on this phone.</div>
+
+    <label for="chatid">Chat ID</label>
+    <input type="text" id="chatid" placeholder="e.g. 123456789" autocomplete="off">
+    <div class="hint">Message your bot once, then open api.telegram.org/bot&lt;TOKEN&gt;/getUpdates — chat ID is in the reply. Use a group ID (negative number) to share the feed.</div>
+
+    <label for="prizes">Prize list — this season</label>
+    <input type="text" id="prizes" placeholder="SP SSR A B C D E F G H I J K" autocomplete="off">
+    <div class="hint">Space or comma separated. Edit any time; saved orders keep their old labels.</div>
+
+    <button class="btn btn-ghost" id="test">Send test message</button>
+    <div id="testmsg"></div>
+
+    <button class="btn btn-tg" id="cfgsave">Save settings</button>
+
+    <label for="cfgstr">Copy setup to another phone</label>
+    <input type="text" id="cfgstr" placeholder="Paste a config code here to import" autocomplete="off">
+    <button class="btn btn-ghost" id="cfgexport">Copy config code</button>
+    <button class="btn btn-ghost" id="cfgimport">Import pasted code</button>
+    <div class="hint">The code contains your bot token — send it to yourself privately, not in public chats.</div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ---------- state ---------- */
+const DEF_PRIZES = ['SP','SSR','A','B','C','D','E','F','G','H','I','J','K'];
+let cfg   = load('po_cfg', null);           // {token, chatId, prizes[]}
+let orders = load('po_orders', []);         // [{id,name,tally:{},remarks,ts,status}]
+let tally = {};
+
+function load(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function save(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+const $ = id => document.getElementById(id);
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+/* ---------- views ---------- */
+function show(view){
+  $('view-order').classList.toggle('hidden', view !== 'order');
+  $('view-settings').classList.toggle('hidden', view !== 'settings');
+  $('gear').textContent = view === 'settings' ? 'Back' : 'Settings';
+}
+$('gear').onclick = () => {
+  const inSettings = !$('view-settings').classList.contains('hidden');
+  if (inSettings && !cfg){ toast('Save settings first'); return; }
+  show(inSettings ? 'order' : 'settings');
+};
+
+/* ---------- prize grid ---------- */
+function renderGrid(){
+  const g = $('grid'); g.innerHTML = '';
+  const prizes = (cfg && cfg.prizes && cfg.prizes.length) ? cfg.prizes : DEF_PRIZES;
+  prizes.forEach(p => {
+    const c = document.createElement('div');
+    c.className = 'chip' + (p.toUpperCase()==='SP' ? ' sp' : p.toUpperCase()==='SSR' ? ' ssr' : '');
+    c.innerHTML = `${esc(p)}<span class="n"></span><span class="minus">−</span>`;
+    c.onclick = e => {
+      if (e.target.classList.contains('minus')){
+        tally[p] = (tally[p]||0) - 1;
+        if (tally[p] <= 0) delete tally[p];
+      } else {
+        tally[p] = (tally[p]||0) + 1;
+      }
+      updateChip(c, p); renderTallyLine();
+    };
+    g.appendChild(c);
+    updateChip(c, p);
+  });
+  renderTallyLine();
+}
+function updateChip(c, p){
+  const n = tally[p]||0;
+  c.classList.toggle('has', n>0);
+  c.querySelector('.n').textContent = '×'+n;
+}
+function tallyText(t){
+  return Object.keys(t).map(k => k+' ×'+t[k]).join(', ');
+}
+function renderTallyLine(){
+  const s = tallyText(tally);
+  $('tallyline').innerHTML = s ? 'This order: <b>'+esc(s)+'</b>' : '';
+}
+function esc(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/* ---------- telegram ---------- */
+function orderMessage(o){
+  let m = '🧾 ' + (o.name || 'Walk-in');
+  const t = tallyText(o.tally);
+  if (t) m += '\n' + t;
+  if (o.remarks) m += '\n📝 ' + o.remarks;
+  m += '\n' + new Date(o.ts).toLocaleString('en-SG', {hour12:true});
+  return m;
+}
+async function sendTG(text){
+  const r = await fetch('https://api.telegram.org/bot' + cfg.token + '/sendMessage', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({chat_id: cfg.chatId, text})
+  });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.description || 'Telegram rejected the message');
+}
+
+/* ---------- save order ---------- */
+$('save').onclick = async () => {
+  if (!cfg){ toast('Set up your bot first'); show('settings'); return; }
+  const name = $('cust').value.trim();
+  const remarks = $('remarks').value.trim();
+  if (!Object.keys(tally).length && !remarks){ toast('Nothing to save — tap a prize or add remarks'); return; }
+
+  const o = { id: Date.now()+''+Math.floor(Math.random()*1e4),
+              name, tally: {...tally}, remarks, ts: Date.now(), status:'pending' };
+  orders.unshift(o); save('po_orders', orders);
+
+  // clear form immediately so the next customer isn't blocked on network
+  tally = {}; $('cust').value=''; $('remarks').value='';
+  renderGrid(); renderList();
+
+  try { await sendTG(orderMessage(o)); o.status = 'sent'; }
+  catch(e){ o.status = 'failed'; toast('Saved on phone — Telegram send failed, tap Retry'); }
+  save('po_orders', orders); renderList();
+};
+
+/* ---------- order list ---------- */
+function renderList(){
+  const el = $('list'); el.innerHTML = '';
+  if (!orders.length){ el.innerHTML = '<div class="empty">No orders on this phone yet.</div>'; return; }
+  orders.forEach(o => {
+    const d = document.createElement('div'); d.className = 'order';
+    const st = o.status==='sent' ? '<span class="st sent">✓ Sent to Telegram</span>'
+             : o.status==='failed' ? '<span class="st failed">✗ Not sent</span>'
+             : '<span class="st pending">… Sending</span>';
+    d.innerHTML =
+      '<div class="top"><span class="name">'+esc(o.name||'Walk-in')+'</span>'+
+      '<span class="time">'+new Date(o.ts).toLocaleString('en-SG',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit',hour12:true})+'</span></div>'+
+      (Object.keys(o.tally).length ? '<div class="prizes">'+esc(tallyText(o.tally))+'</div>' : '')+
+      (o.remarks ? '<div class="rem">'+esc(o.remarks)+'</div>' : '')+
+      '<div class="foot">'+st+'<div class="acts">'+
+      (o.status==='failed' ? '<button class="a-retry">Retry</button>' : '')+
+      '<button class="a-share">Share</button><button class="a-del">Delete</button></div></div>';
+    d.querySelector('.a-share').onclick = () => shareText(orderMessage(o));
+    d.querySelector('.a-del').onclick = () => {
+      if (!confirm('Delete this order from the phone? (Telegram copy is untouched)')) return;
+      orders = orders.filter(x => x.id !== o.id); save('po_orders', orders); renderList();
+    };
+    const rt = d.querySelector('.a-retry');
+    if (rt) rt.onclick = async () => {
+      o.status='pending'; renderList();
+      try { await sendTG(orderMessage(o)); o.status='sent'; toast('Sent'); }
+      catch(e){ o.status='failed'; toast('Still failing — check signal / settings'); }
+      save('po_orders', orders); renderList();
+    };
+    el.appendChild(d);
+  });
+}
+$('shareAll').onclick = () => {
+  if (!orders.length){ toast('Nothing to share'); return; }
+  shareText(orders.map(orderMessage).join('\n\n————\n\n'));
+};
+async function shareText(text){
+  if (navigator.share){
+    try { await navigator.share({text}); return; } catch(e){ if (e.name==='AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(text); toast('Copied to clipboard'); }
+  catch(e){ toast('Could not copy — long-press to select manually'); }
+}
+
+/* ---------- settings ---------- */
+function fillSettings(){
+  if (!cfg) { $('prizes').value = DEF_PRIZES.join(' '); return; }
+  $('token').value = cfg.token; $('chatid').value = cfg.chatId;
+  $('prizes').value = cfg.prizes.join(' ');
+}
+function readSettings(){
+  const token = $('token').value.trim();
+  const chatId = $('chatid').value.trim();
+  const prizes = $('prizes').value.split(/[\s,]+/).filter(Boolean);
+  return {token, chatId, prizes};
+}
+$('cfgsave').onclick = async () => {
+  const c = readSettings();
+  if (!c.token || !c.chatId){ toast('Token and chat ID are both required'); return; }
+  if (!c.prizes.length) c.prizes = DEF_PRIZES;
+  // validate token before trusting it
+  $('cfgsave').disabled = true;
+  try {
+    const r = await fetch('https://api.telegram.org/bot'+c.token+'/getMe');
+    const j = await r.json();
+    if (!j.ok) throw new Error();
+    cfg = c; save('po_cfg', cfg);
+    toast('Saved — bot @'+j.result.username+' connected');
+    renderGrid(); show('order');
+  } catch(e){ toast('Token rejected by Telegram — check for typos'); }
+  $('cfgsave').disabled = false;
+};
+$('test').onclick = async () => {
+  const c = readSettings(); const m = $('testmsg');
+  if (!c.token || !c.chatId){ m.className='err'; m.textContent='Fill in token and chat ID first.'; return; }
+  m.className=''; m.textContent='Sending…';
+  try {
+    const r = await fetch('https://api.telegram.org/bot'+c.token+'/sendMessage', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({chat_id:c.chatId, text:'✅ Prize Orders test — this phone is connected.'})
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.description);
+    m.className='ok'; m.textContent='Delivered — check Telegram.';
+  } catch(e){ m.className='err'; m.textContent='Failed: '+(e.message||'network error'); }
+};
+
+/* config transfer between phones */
+$('cfgexport').onclick = async () => {
+  const c = cfg || readSettings();
+  if (!c.token){ toast('Nothing to export yet'); return; }
+  const code = 'PO1.'+btoa(unescape(encodeURIComponent(JSON.stringify(c))));
+  try { await navigator.clipboard.writeText(code); toast('Config code copied — paste it on the other phone'); }
+  catch(e){ $('cfgstr').value = code; toast('Copy the code from the box above'); }
+};
+$('cfgimport').onclick = () => {
+  const v = $('cfgstr').value.trim();
+  if (!v.startsWith('PO1.')){ toast('That does not look like a config code'); return; }
+  try {
+    const c = JSON.parse(decodeURIComponent(escape(atob(v.slice(4)))));
+    if (!c.token || !c.chatId) throw new Error();
+    cfg = {token:c.token, chatId:c.chatId, prizes:(c.prizes&&c.prizes.length)?c.prizes:DEF_PRIZES};
+    save('po_cfg', cfg); fillSettings(); renderGrid();
+    toast('Imported — send a test message to confirm');
+  } catch(e){ toast('Code is corrupted — re-copy it from the first phone'); }
+};
+
+/* ---------- persistence guard ---------- */
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+
+/* ---------- boot ---------- */
+fillSettings(); renderGrid(); renderList();
+show(cfg ? 'order' : 'settings');
+</script>
+</body>
+</html>
