@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Prize Orders</title>
+<title>Kuji Order Tracker</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Prize Orders">
+<meta name="apple-mobile-web-app-title" content="Kuji Orders">
 <meta name="theme-color" content="#12151C">
 <style>
 :root{
@@ -65,6 +65,8 @@ textarea{resize:vertical;min-height:74px}
 
 #tallyline{margin-top:12px;font-size:.95rem;color:var(--ink-dim);min-height:1.3em}
 #tallyline b{color:var(--ink)}
+#eventref{font-size:.85rem;color:var(--ink-dim);margin:-4px 0 6px}
+#eventref b{color:var(--gold)}
 
 /* buttons */
 .btn{display:block;width:100%;border:none;border-radius:var(--r);padding:15px;
@@ -111,16 +113,19 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
 <body>
 <div class="wrap">
   <header>
-    <h1><span class="tick">▸</span> Prize Orders</h1>
+    <h1><span class="tick">▸</span> Kuji Order Tracker</h1>
     <button id="gear">Settings</button>
   </header>
 
   <!-- ============ ORDER VIEW ============ -->
   <main id="view-order">
+    <div id="eventref"></div>
     <label for="cust">Customer</label>
-    <input type="text" id="cust" placeholder="Name / handle" autocomplete="off">
+    <input type="text" id="cust" placeholder="Name / Social Media Handle" autocomplete="off">
 
-    <label>Prizes — tap to add</label>
+    <label style="display:flex;justify-content:space-between;align-items:center">Prizes — tap to add
+      <button id="clearTally" style="background:none;border:none;color:var(--danger);font-weight:700;font-size:.78rem;cursor:pointer;font-family:inherit;text-transform:none;letter-spacing:normal;padding:2px">Clear taps</button>
+    </label>
     <div class="grid" id="grid"></div>
     <div id="tallyline"></div>
 
@@ -145,7 +150,11 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     <input type="text" id="chatid" placeholder="e.g. 123456789" autocomplete="off">
     <div class="hint">Message your bot once, then open api.telegram.org/bot&lt;TOKEN&gt;/getUpdates — chat ID is in the reply. Use a group ID (negative number) to share the feed.</div>
 
-    <label for="prizes">Prize list — this season</label>
+    <label for="event">Current Event</label>
+    <input type="text" id="event" placeholder="Event Name…" autocomplete="off">
+    <div class="hint">Stamped at the top of every Telegram order. Update it at each new event, then press Save settings.</div>
+
+    <label for="prizes">Prize list — Current Event</label>
     <input type="text" id="prizes" placeholder="SP SSR A B C D E F G H I J K" autocomplete="off">
     <div class="hint">Space or comma separated. Edit any time; saved orders keep their old labels.</div>
 
@@ -190,8 +199,17 @@ function show(view){
 }
 $('gear').onclick = () => {
   const inSettings = !$('view-settings').classList.contains('hidden');
-  if (inSettings && !cfg){ toast('Save settings first'); return; }
-  show(inSettings ? 'order' : 'settings');
+  if (!inSettings){ show('settings'); return; }
+  if (!cfg){ toast('Save settings first'); return; }
+  const typed = $('event').value.trim();
+  const saved = cfg.eventName || '';
+  if (typed !== saved){
+    if (!confirm('You typed “'+typed+'” but did NOT press Save settings — orders will still say “'+(saved||'no event')+'”.\n\nOK = discard the change and go back. Cancel = stay and save it.')) return;
+    $('event').value = saved;
+  } else {
+    if (!confirm('Current event: “'+(saved||'none set')+'”.\n\nIs this correct? OK = back to orders. Cancel = stay in settings.')) return;
+  }
+  show('order');
 };
 
 /* ---------- prize grid ---------- */
@@ -229,10 +247,16 @@ function renderTallyLine(){
   $('tallyline').innerHTML = s ? 'This order: <b>'+esc(s)+'</b>' : '';
 }
 function esc(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+$('clearTally').onclick = () => {
+  if (!Object.keys(tally).length){ toast('No prizes tapped'); return; }
+  tally = {}; renderGrid(); toast('Taps cleared');
+};
 
 /* ---------- telegram ---------- */
 function orderMessage(o){
-  let m = '🧾 ' + (o.name || 'Walk-in');
+  let m = '';
+  if (o.event) m += '🎪 ' + o.event + '\n';
+  m += '🧾 ' + (o.name || 'Walk-in');
   const t = tallyText(o.tally);
   if (t) m += '\n' + t;
   if (o.remarks) m += '\n📝 ' + o.remarks;
@@ -257,7 +281,7 @@ $('save').onclick = async () => {
   if (!Object.keys(tally).length && !remarks){ toast('Nothing to save — tap a prize or add remarks'); return; }
 
   const o = { id: Date.now()+''+Math.floor(Math.random()*1e4),
-              name, tally: {...tally}, remarks, ts: Date.now(), status:'pending' };
+              name, tally: {...tally}, remarks, event: cfg.eventName || '', ts: Date.now(), status:'pending' };
   orders.unshift(o); save('po_orders', orders);
 
   // clear form immediately so the next customer isn't blocked on network
@@ -326,13 +350,19 @@ async function shareText(text){
 function fillSettings(){
   if (!cfg) { $('prizes').value = DEF_PRIZES.join(' '); return; }
   $('token').value = cfg.token; $('chatid').value = cfg.chatId;
+  $('event').value = cfg.eventName || '';
   $('prizes').value = cfg.prizes.join(' ');
+}
+function renderEventRef(){
+  const e = cfg && cfg.eventName;
+  $('eventref').innerHTML = e ? 'Event: <b>'+esc(e)+'</b>' : 'No event set — add one in Settings';
 }
 function readSettings(){
   const token = $('token').value.trim();
   const chatId = $('chatid').value.trim();
+  const eventName = $('event').value.trim();
   const prizes = $('prizes').value.split(/[\s,]+/).filter(Boolean);
-  return {token, chatId, prizes};
+  return {token, chatId, eventName, prizes};
 }
 $('cfgsave').onclick = async () => {
   const c = readSettings();
@@ -346,7 +376,7 @@ $('cfgsave').onclick = async () => {
     if (!j.ok) throw new Error();
     cfg = c; save('po_cfg', cfg);
     toast('Saved — bot @'+j.result.username+' connected');
-    renderGrid(); show('order');
+    renderGrid(); renderEventRef(); show('order');
   } catch(e){ toast('Token rejected by Telegram — check for typos'); }
   $('cfgsave').disabled = false;
 };
@@ -357,7 +387,7 @@ $('test').onclick = async () => {
   try {
     const r = await fetch('https://api.telegram.org/bot'+c.token+'/sendMessage', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({chat_id:c.chatId, text:'✅ Prize Orders test — this phone is connected.'})
+      body: JSON.stringify({chat_id:c.chatId, text:'✅ Kuji Order Tracker test — this phone is connected.'})
     });
     const j = await r.json();
     if (!j.ok) throw new Error(j.description);
@@ -379,8 +409,8 @@ $('cfgimport').onclick = () => {
   try {
     const c = JSON.parse(decodeURIComponent(escape(atob(v.slice(4)))));
     if (!c.token || !c.chatId) throw new Error();
-    cfg = {token:c.token, chatId:c.chatId, prizes:(c.prizes&&c.prizes.length)?c.prizes:DEF_PRIZES};
-    save('po_cfg', cfg); fillSettings(); renderGrid();
+    cfg = {token:c.token, chatId:c.chatId, eventName:c.eventName||'', prizes:(c.prizes&&c.prizes.length)?c.prizes:DEF_PRIZES};
+    save('po_cfg', cfg); fillSettings(); renderGrid(); renderEventRef();
     toast('Imported — send a test message to confirm');
   } catch(e){ toast('Code is corrupted — re-copy it from the first phone'); }
 };
@@ -389,7 +419,7 @@ $('cfgimport').onclick = () => {
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
 /* ---------- boot ---------- */
-fillSettings(); renderGrid(); renderList();
+fillSettings(); renderGrid(); renderList(); renderEventRef();
 show(cfg ? 'order' : 'settings');
 </script>
 </body>
