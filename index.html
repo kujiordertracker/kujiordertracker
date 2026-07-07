@@ -14,7 +14,7 @@
 :root{
   --bg:#12151C; --surface:#1C2130; --surface2:#242B3D; --line:#323B52;
   --ink:#F2F0E9; --ink-dim:#9AA3B8;
-  --gold:#E8B84B; --rare:#C86BD9; --tg:#2AABEE; --danger:#E05C5C; --ok:#57C99B;
+  --gold:#E8B84B; --rare:#C86BD9; --lime:#9FE04A; --tg:#2AABEE; --danger:#E05C5C; --ok:#57C99B;
   --r:14px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -50,8 +50,9 @@ textarea{resize:vertical;min-height:74px}
   font-weight:800;font-size:1.15rem;letter-spacing:.03em;color:var(--ink);
   border-left:4px solid var(--line);transition:transform .06s}
 .chip:active{transform:scale(.94);background:var(--surface2)}
-.chip.sp{border-left-color:var(--gold);color:var(--gold)}
-.chip.ssr{border-left-color:var(--rare);color:var(--rare)}
+.chip.sp{border-left-color:var(--lime);color:var(--lime)}
+.chip.ssr{border-left-color:var(--gold);color:var(--gold)}
+.chip.sr{border-left-color:var(--rare);color:var(--rare)}
 .chip .n{
   position:absolute;top:-7px;right:-7px;min-width:24px;height:24px;border-radius:12px;
   background:var(--tg);color:#fff;font-size:.8rem;font-weight:800;line-height:24px;padding:0 6px;
@@ -156,7 +157,7 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
 
     <label for="prizes">Prize list — Current Event</label>
     <input type="text" id="prizes" placeholder="SP SSR A B C D E F G H I J K" autocomplete="off">
-    <div class="hint">Space or comma separated. Edit any time; saved orders keep their old labels.</div>
+    <div class="hint">Space or comma separated. Add a color with NAME:color — CSS names or hex both work, e.g. SP:lime SSR:gold SR:violet B:9FE04A. Bare names stay neutral. Saved orders keep their old labels.</div>
 
     <button class="btn btn-ghost" id="test">Send test message</button>
     <div id="testmsg"></div>
@@ -213,13 +214,24 @@ $('gear').onclick = () => {
 };
 
 /* ---------- prize grid ---------- */
+function parsePrize(tok){
+  const i = tok.indexOf(':');
+  if (i === -1) return {n: tok, c: null};
+  let c = tok.slice(i+1);
+  if (/^[0-9a-f]{3}$|^[0-9a-f]{6}$/i.test(c)) c = '#'+c;
+  return {n: tok.slice(0,i), c};
+}
 function renderGrid(){
   const g = $('grid'); g.innerHTML = '';
   const prizes = (cfg && cfg.prizes && cfg.prizes.length) ? cfg.prizes : DEF_PRIZES;
-  prizes.forEach(p => {
+  prizes.forEach(tok => {
+    const pz = parsePrize(tok);
+    const p = pz.n;
     const c = document.createElement('div');
-    c.className = 'chip' + (p.toUpperCase()==='SP' ? ' sp' : p.toUpperCase()==='SSR' ? ' ssr' : '');
+    const u = p.toUpperCase();
+    c.className = 'chip' + (u==='SP' ? ' sp' : u==='SSR' ? ' ssr' : u==='SR' ? ' sr' : '');
     c.innerHTML = `${esc(p)}<span class="n"></span><span class="minus">−</span>`;
+    if (pz.c){ c.style.borderLeftColor = pz.c; c.style.color = pz.c; }
     c.onclick = e => {
       if (e.target.classList.contains('minus')){
         tally[p] = (tally[p]||0) - 1;
