@@ -130,7 +130,7 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     <button class="btn btn-tg" id="save">Save &amp; send to Telegram</button>
 
     <h2>Orders on this phone
-      <button id="shareAll">Share all</button>
+      <span><button id="shareAll">Share all</button> &nbsp;<button id="clearAll" style="color:var(--danger)">Clear all</button></span>
     </h2>
     <div id="list"></div>
   </main>
@@ -236,7 +236,7 @@ function orderMessage(o){
   const t = tallyText(o.tally);
   if (t) m += '\n' + t;
   if (o.remarks) m += '\n📝 ' + o.remarks;
-  m += '\n' + new Date(o.ts).toLocaleString('en-SG', {hour12:true});
+  m += '\n' + new Date(o.ts).toLocaleString('en-SG', {timeZone:'Asia/Singapore', hour12:true});
   return m;
 }
 async function sendTG(text){
@@ -280,7 +280,7 @@ function renderList(){
              : '<span class="st pending">… Sending</span>';
     d.innerHTML =
       '<div class="top"><span class="name">'+esc(o.name||'Walk-in')+'</span>'+
-      '<span class="time">'+new Date(o.ts).toLocaleString('en-SG',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit',hour12:true})+'</span></div>'+
+      '<span class="time">'+new Date(o.ts).toLocaleString('en-SG',{timeZone:'Asia/Singapore',day:'numeric',month:'short',hour:'numeric',minute:'2-digit',hour12:true})+'</span></div>'+
       (Object.keys(o.tally).length ? '<div class="prizes">'+esc(tallyText(o.tally))+'</div>' : '')+
       (o.remarks ? '<div class="rem">'+esc(o.remarks)+'</div>' : '')+
       '<div class="foot">'+st+'<div class="acts">'+
@@ -304,6 +304,15 @@ function renderList(){
 $('shareAll').onclick = () => {
   if (!orders.length){ toast('Nothing to share'); return; }
   shareText(orders.map(orderMessage).join('\n\n————\n\n'));
+};
+$('clearAll').onclick = () => {
+  if (!orders.length){ toast('Nothing to clear'); return; }
+  const unsent = orders.filter(o => o.status !== 'sent').length;
+  const msg = unsent
+    ? '⚠️ ' + unsent + ' order' + (unsent>1?'s':'') + ' never reached Telegram — clearing deletes ' + (unsent>1?'them':'it') + ' permanently, no copy exists anywhere. Clear everything anyway?'
+    : 'Clear all ' + orders.length + ' orders from this phone? The Telegram copies are untouched.';
+  if (!confirm(msg)) return;
+  orders = []; save('po_orders', orders); renderList(); toast('Cleared');
 };
 async function shareText(text){
   if (navigator.share){
