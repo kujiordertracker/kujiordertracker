@@ -36,10 +36,10 @@ h1 .tick{color:var(--gold)}
 /* fields */
 label{display:block;font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
   color:var(--ink-dim);margin:16px 0 6px}
-input[type=text],input[type=password],textarea{
+input[type=text],input[type=password],select,textarea{
   width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
   color:var(--ink);padding:13px 14px;font-size:1rem;font-family:inherit;outline:none}
-input:focus,textarea:focus{border-color:var(--tg)}
+input:focus,select:focus,textarea:focus{border-color:var(--tg)}
 textarea{resize:vertical;min-height:74px}
 
 /* prize grid — kuji ticket chips */
@@ -130,6 +130,9 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     <div class="grid" id="grid"></div>
     <div id="tallyline"></div>
 
+    <label for="amount">Amount — <span id="curlab">SGD</span></label>
+    <input type="text" id="amount" inputmode="decimal" placeholder="0.00" autocomplete="off">
+
     <label for="remarks">Remarks</label>
     <textarea id="remarks" placeholder="Payment, meetup, notes…"></textarea>
 
@@ -155,6 +158,13 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     <input type="text" id="event" placeholder="Event Name…" autocomplete="off">
     <div class="hint">Stamped at the top of every Telegram order. Update it at each new event, then press Save settings.</div>
 
+    <label for="currency">Currency</label>
+    <select id="currency">
+      <option value="SGD">SGD</option>
+      <option value="MYR">MYR</option>
+    </select>
+    <div class="hint">Shown on the Amount field and stamped into each order at save. Switch it together with the event.</div>
+
     <label for="prizes">Prize list — Current Event</label>
     <input type="text" id="prizes" placeholder="SP SSR A B C D E F G H I J K" autocomplete="off">
     <div class="hint">Space or comma separated. Add a color with NAME:color — CSS names or hex both work, e.g. SP:lime SSR:gold SR:violet B:9FE04A. Bare names stay neutral. Saved orders keep their old labels.</div>
@@ -169,7 +179,7 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     <button class="btn btn-ghost" id="cfgexport">Copy config code</button>
     <button class="btn btn-ghost" id="cfgimport">Import pasted code</button>
     <div class="hint">The code contains your bot token — send it to yourself privately, not in public chats.</div>
-    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 8</div>
+    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 10</div>
   </main>
 </div>
 <div id="toast"></div>
@@ -257,7 +267,8 @@ function tallyText(t){
 }
 function renderTallyLine(){
   const s = tallyText(tally);
-  $('tallyline').innerHTML = s ? 'This order: <b>'+esc(s)+'</b>' : '';
+  const tot = Object.values(tally).reduce((a,b)=>a+b,0);
+  $('tallyline').innerHTML = s ? 'This order: <b>'+esc(s)+'</b><br>Total prizes: <b>'+tot+'</b>' : '';
 }
 function esc(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 $('clearTally').onclick = () => {
@@ -271,7 +282,11 @@ function orderMessage(o){
   if (o.event) m += '🎪 ' + o.event + '\n';
   m += '🧾 ' + (o.name || 'Walk-in');
   const t = tallyText(o.tally);
-  if (t) m += '\n' + t;
+  if (t){
+    m += '\n' + t;
+    m += '\n🎁 Total prizes: ' + Object.values(o.tally).reduce((a,b)=>a+b,0);
+  }
+  if (o.amount) m += '\n💰 ' + (o.currency||'SGD') + ' ' + o.amount;
   if (o.remarks) m += '\n📝 ' + o.remarks;
   m += '\n' + new Date(o.ts).toLocaleString('en-SG', {timeZone:'Asia/Singapore', hour12:true});
   return m;
@@ -291,14 +306,16 @@ $('save').onclick = async () => {
   if (!cfg){ toast('Set up your bot first'); show('settings'); return; }
   const name = $('cust').value.trim();
   const remarks = $('remarks').value.trim();
-  if (!Object.keys(tally).length && !remarks){ toast('Nothing to save — tap a prize or add remarks'); return; }
+  const amount = $('amount').value.trim();
+  if (!Object.keys(tally).length && !remarks && !amount){ toast('Nothing to save — tap a prize or add remarks'); return; }
 
   const o = { id: Date.now()+''+Math.floor(Math.random()*1e4),
-              name, tally: {...tally}, remarks, event: cfg.eventName || '', ts: Date.now(), status:'pending' };
+              name, tally: {...tally}, remarks, amount, currency: cfg.currency || 'SGD',
+              event: cfg.eventName || '', ts: Date.now(), status:'pending' };
   orders.unshift(o); save('po_orders', orders);
 
   // clear form immediately so the next customer isn't blocked on network
-  tally = {}; $('cust').value=''; $('remarks').value='';
+  tally = {}; $('cust').value=''; $('remarks').value=''; $('amount').value='';
   renderGrid(); renderList();
 
   try { await sendTG(orderMessage(o)); o.status = 'sent'; }
@@ -364,18 +381,21 @@ function fillSettings(){
   if (!cfg) { $('prizes').value = DEF_PRIZES.join(' '); return; }
   $('token').value = cfg.token; $('chatid').value = cfg.chatId;
   $('event').value = cfg.eventName || '';
+  $('currency').value = cfg.currency || 'SGD';
   $('prizes').value = cfg.prizes.join(' ');
 }
 function renderEventRef(){
   const e = cfg && cfg.eventName;
   $('eventref').innerHTML = e ? 'Event: <b>'+esc(e)+'</b>' : 'No event set — add one in Settings';
+  $('curlab').textContent = (cfg && cfg.currency) || 'SGD';
 }
 function readSettings(){
   const token = $('token').value.trim();
   const chatId = $('chatid').value.trim();
   const eventName = $('event').value.trim();
+  const currency = $('currency').value;
   const prizes = $('prizes').value.split(/[\s,]+/).filter(Boolean);
-  return {token, chatId, eventName, prizes};
+  return {token, chatId, eventName, currency, prizes};
 }
 $('cfgsave').onclick = async () => {
   const c = readSettings();
@@ -422,7 +442,7 @@ $('cfgimport').onclick = () => {
   try {
     const c = JSON.parse(decodeURIComponent(escape(atob(v.slice(4)))));
     if (!c.token || !c.chatId) throw new Error();
-    cfg = {token:c.token, chatId:c.chatId, eventName:c.eventName||'', prizes:(c.prizes&&c.prizes.length)?c.prizes:DEF_PRIZES};
+    cfg = {token:c.token, chatId:c.chatId, eventName:c.eventName||'', currency:c.currency||'SGD', prizes:(c.prizes&&c.prizes.length)?c.prizes:DEF_PRIZES};
     save('po_cfg', cfg); fillSettings(); renderGrid(); renderEventRef();
     toast('Imported — send a test message to confirm');
   } catch(e){ toast('Code is corrupted — re-copy it from the first phone'); }
