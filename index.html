@@ -131,7 +131,7 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     <div id="tallyline"></div>
 
     <label for="amount">Amount — <span id="curlab">SGD</span></label>
-    <input type="text" id="amount" inputmode="decimal" placeholder="0.00" autocomplete="off">
+    <input type="text" id="amount" inputmode="numeric" placeholder="0.00" autocomplete="off">
 
     <label for="remarks">Remarks</label>
     <textarea id="remarks" placeholder="Payment, meetup, notes…"></textarea>
@@ -179,7 +179,7 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     <button class="btn btn-ghost" id="cfgexport">Copy config code</button>
     <button class="btn btn-ghost" id="cfgimport">Import pasted code</button>
     <div class="hint">The code contains your bot token — send it to yourself privately, not in public chats.</div>
-    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 10</div>
+    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 11</div>
   </main>
 </div>
 <div id="toast"></div>
@@ -275,6 +275,13 @@ $('clearTally').onclick = () => {
   if (!Object.keys(tally).length){ toast('No prizes tapped'); return; }
   tally = {}; renderGrid(); toast('Taps cleared');
 };
+/* cash-register amount entry: 1500 -> 15.00, 100050 -> 1000.50 */
+$('amount').addEventListener('input', e => {
+  let d = $('amount').value.replace(/\D/g, '').slice(0, 10);
+  const deleting = e.inputType && e.inputType.startsWith('delete');
+  if (deleting && parseInt(d || '0', 10) === 0){ $('amount').value = ''; return; }
+  $('amount').value = d ? (parseInt(d, 10) / 100).toFixed(2) : '';
+});
 
 /* ---------- telegram ---------- */
 function orderMessage(o){
