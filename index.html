@@ -179,7 +179,7 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     <button class="btn btn-ghost" id="cfgexport">Copy config code</button>
     <button class="btn btn-ghost" id="cfgimport">Import pasted code</button>
     <div class="hint">The code contains your bot token — send it to yourself privately, not in public chats.</div>
-    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 11</div>
+    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 12</div>
   </main>
 </div>
 <div id="toast"></div>
@@ -285,18 +285,18 @@ $('amount').addEventListener('input', e => {
 
 /* ---------- telegram ---------- */
 function orderMessage(o){
-  let m = '';
-  if (o.event) m += '🎪 ' + o.event + '\n';
-  m += '🧾 ' + (o.name || 'Walk-in');
+  const L = [];
+  if (o.event) L.push('Event: ' + o.event);
+  L.push('Customer: ' + (o.name || 'Walk-in'));
   const t = tallyText(o.tally);
   if (t){
-    m += '\n' + t;
-    m += '\n🎁 Total prizes: ' + Object.values(o.tally).reduce((a,b)=>a+b,0);
+    L.push('Prizes: ' + t);
+    L.push('Total Prizes: ' + Object.values(o.tally).reduce((a,b)=>a+b,0));
   }
-  if (o.amount) m += '\n💰 ' + (o.currency||'SGD') + ' ' + o.amount;
-  if (o.remarks) m += '\n📝 ' + o.remarks;
-  m += '\n' + new Date(o.ts).toLocaleString('en-SG', {timeZone:'Asia/Singapore', hour12:true});
-  return m;
+  if (o.amount) L.push('Amount: ' + (o.currency||'SGD') + ' ' + o.amount);
+  if (o.remarks) L.push('Remarks: ' + o.remarks);
+  L.push('Date: ' + new Date(o.ts).toLocaleString('en-SG', {timeZone:'Asia/Singapore', hour12:true}));
+  return L.join('\n');
 }
 async function sendTG(text){
   const r = await fetch('https://api.telegram.org/bot' + cfg.token + '/sendMessage', {
