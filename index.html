@@ -121,7 +121,9 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
   <!-- ============ ORDER VIEW ============ -->
   <main id="view-order">
     <div id="eventref"></div>
-    <label for="cust">Customer</label>
+    <label for="cust" style="display:flex;justify-content:space-between;align-items:center">Customer
+      <button id="lastcust" style="background:none;border:none;color:var(--tg);font-weight:700;font-size:.78rem;cursor:pointer;font-family:inherit;text-transform:none;letter-spacing:normal;padding:2px;display:none;max-width:62%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></button>
+    </label>
     <input type="text" id="cust" placeholder="Name / Social Media Handle" autocomplete="off">
 
     <label style="display:flex;justify-content:space-between;align-items:center">Prizes — tap to add
@@ -179,7 +181,7 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     <button class="btn btn-ghost" id="cfgexport">Copy config code</button>
     <button class="btn btn-ghost" id="cfgimport">Import pasted code</button>
     <div class="hint">The code contains your bot token — send it to yourself privately, not in public chats.</div>
-    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 12</div>
+    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 13</div>
   </main>
 </div>
 <div id="toast"></div>
@@ -330,8 +332,21 @@ $('save').onclick = async () => {
   save('po_orders', orders); renderList();
 };
 
+/* last-entered customer shortcut */
+function renderLastCust(){
+  const b = $('lastcust');
+  const n = orders.length ? (orders[0].name || '') : '';
+  if (n){ b.textContent = 'Last Entered: ' + n; b.style.display = 'block'; }
+  else b.style.display = 'none';
+}
+$('lastcust').onclick = () => {
+  const n = orders.length ? (orders[0].name || '') : '';
+  if (n) $('cust').value = n;
+};
+
 /* ---------- order list ---------- */
 function renderList(){
+  renderLastCust();
   const el = $('list'); el.innerHTML = '';
   if (!orders.length){ el.innerHTML = '<div class="empty">No orders on this phone yet.</div>'; return; }
   orders.forEach(o => {
