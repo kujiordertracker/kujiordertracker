@@ -53,6 +53,7 @@ textarea{resize:vertical;min-height:74px}
 .chip.sp{border-left-color:var(--lime);color:var(--lime)}
 .chip.ssr{border-left-color:var(--gold);color:var(--gold)}
 .chip.sr{border-left-color:var(--rare);color:var(--rare)}
+.chip.buyout{grid-column:span 2;border-left-color:var(--tg);color:var(--tg);font-size:1rem}
 .chip .n{
   position:absolute;top:-7px;right:-7px;min-width:24px;height:24px;border-radius:12px;
   background:var(--tg);color:#fff;font-size:.8rem;font-weight:800;line-height:24px;padding:0 6px;
@@ -185,7 +186,7 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     </h2>
     <div id="list2"></div>
 
-    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 15</div>
+    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 16</div>
   </main>
 </div>
 <div id="toast"></div>
@@ -261,6 +262,24 @@ function renderGrid(){
     g.appendChild(c);
     updateChip(c, p);
   });
+  const b = document.createElement('div');
+  b.className = 'chip buyout';
+  b.innerHTML = `Buyout<span class="n"></span><span class="minus">−</span>`;
+  b.onclick = e => {
+    if (e.target.classList.contains('minus')){
+      tally['Buyout'] = (tally['Buyout']||0) - 1;
+      if (tally['Buyout'] <= 0) delete tally['Buyout'];
+    } else {
+      const v = prompt('Buyout — number of prizes:', tally['Buyout'] || '');
+      if (v === null) return;
+      const n = parseInt(v.replace(/\D/g, ''), 10);
+      if (!n){ toast('Enter a number above 0'); return; }
+      tally['Buyout'] = n;
+    }
+    updateChip(b, 'Buyout'); renderTallyLine();
+  };
+  g.appendChild(b);
+  updateChip(b, 'Buyout');
   renderTallyLine();
 }
 function updateChip(c, p){
