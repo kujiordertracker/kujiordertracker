@@ -140,9 +140,7 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
 
     <button class="btn btn-tg" id="save">Save &amp; send to Telegram</button>
 
-    <h2>Orders on this phone
-      <span><button id="shareAll">Share all</button> &nbsp;<button id="clearAll" style="color:var(--danger)">Clear all</button></span>
-    </h2>
+    <h2>Orders on this phone</h2>
     <div id="list"></div>
   </main>
 
@@ -181,7 +179,13 @@ h2 button{background:none;border:none;color:var(--tg);font-size:.78rem;font-weig
     <button class="btn btn-ghost" id="cfgexport">Copy config code</button>
     <button class="btn btn-ghost" id="cfgimport">Import pasted code</button>
     <div class="hint">The code contains your bot token — send it to yourself privately, not in public chats.</div>
-    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 13</div>
+
+    <h2>Orders on this phone
+      <span><button id="shareAll">Share all</button> &nbsp;<button id="resendAll" style="color:var(--ok)">Resend all</button> &nbsp;<button id="clearAll" style="color:var(--danger)">Clear all</button></span>
+    </h2>
+    <div id="list2"></div>
+
+    <div class="hint" style="margin-top:22px;text-align:center;opacity:.6">Kuji Order Tracker · build 15</div>
   </main>
 </div>
 <div id="toast"></div>
@@ -264,8 +268,13 @@ function updateChip(c, p){
   c.classList.toggle('has', n>0);
   c.querySelector('.n').textContent = '×'+n;
 }
+function prizeRank(name){
+  const prizes = (cfg && cfg.prizes && cfg.prizes.length) ? cfg.prizes : DEF_PRIZES;
+  const i = prizes.findIndex(tok => parsePrize(tok).n === name);
+  return i === -1 ? 9999 : i;
+}
 function tallyText(t){
-  return Object.keys(t).map(k => k+' ×'+t[k]).join(', ');
+  return Object.keys(t).sort((a,b) => prizeRank(a)-prizeRank(b)).map(k => k+' ×'+t[k]).join(', ');
 }
 function renderTallyLine(){
   const s = tallyText(tally);
@@ -321,6 +330,9 @@ $('save').onclick = async () => {
   const o = { id: Date.now()+''+Math.floor(Math.random()*1e4),
               name, tally: {...tally}, remarks, amount, currency: cfg.currency || 'SGD',
               event: cfg.eventName || '', ts: Date.now(), status:'pending' };
+
+  if (!confirm('Send this order?\n\n' + orderMessage(o) + '\n\nOK = send  ·  Cancel = check again')) return;
+
   orders.unshift(o); save('po_orders', orders);
 
   // clear form immediately so the next customer isn't blocked on network
@@ -347,36 +359,60 @@ $('lastcust').onclick = () => {
 /* ---------- order list ---------- */
 function renderList(){
   renderLastCust();
-  const el = $('list'); el.innerHTML = '';
+  renderInto($('list'), false);
+  renderInto($('list2'), true);
+}
+function renderInto(el, controls){
+  if (!el) return;
+  el.innerHTML = '';
   if (!orders.length){ el.innerHTML = '<div class="empty">No orders on this phone yet.</div>'; return; }
   orders.forEach(o => {
     const d = document.createElement('div'); d.className = 'order';
     const st = o.status==='sent' ? '<span class="st sent">✓ Sent to Telegram</span>'
              : o.status==='failed' ? '<span class="st failed">✗ Not sent</span>'
              : '<span class="st pending">… Sending</span>';
+    const acts = controls
+      ? '<div class="acts">'+
+        (o.status==='failed' ? '<button class="a-retry">Retry</button>' : '')+
+        '<button class="a-share">Share</button><button class="a-del">Delete</button></div>'
+      : '';
     d.innerHTML =
       '<div class="top"><span class="name">'+esc(o.name||'Walk-in')+'</span>'+
       '<span class="time">'+new Date(o.ts).toLocaleString('en-SG',{timeZone:'Asia/Singapore',day:'numeric',month:'short',hour:'numeric',minute:'2-digit',hour12:true})+'</span></div>'+
       (Object.keys(o.tally).length ? '<div class="prizes">'+esc(tallyText(o.tally))+'</div>' : '')+
       (o.remarks ? '<div class="rem">'+esc(o.remarks)+'</div>' : '')+
-      '<div class="foot">'+st+'<div class="acts">'+
-      (o.status==='failed' ? '<button class="a-retry">Retry</button>' : '')+
-      '<button class="a-share">Share</button><button class="a-del">Delete</button></div></div>';
-    d.querySelector('.a-share').onclick = () => shareText(orderMessage(o));
-    d.querySelector('.a-del').onclick = () => {
-      if (!confirm('Delete this order from the phone? (Telegram copy is untouched)')) return;
-      orders = orders.filter(x => x.id !== o.id); save('po_orders', orders); renderList();
-    };
-    const rt = d.querySelector('.a-retry');
-    if (rt) rt.onclick = async () => {
-      o.status='pending'; renderList();
-      try { await sendTG(orderMessage(o)); o.status='sent'; toast('Sent'); }
-      catch(e){ o.status='failed'; toast('Still failing — check signal / settings'); }
-      save('po_orders', orders); renderList();
-    };
+      '<div class="foot">'+st+acts+'</div>';
+    if (controls){
+      d.querySelector('.a-share').onclick = () => shareText(orderMessage(o));
+      d.querySelector('.a-del').onclick = () => {
+        if (!confirm('Delete this order from the phone? (Telegram copy is untouched)')) return;
+        orders = orders.filter(x => x.id !== o.id); save('po_orders', orders); renderList();
+      };
+      const rt = d.querySelector('.a-retry');
+      if (rt) rt.onclick = async () => {
+        o.status='pending'; renderList();
+        try { await sendTG(orderMessage(o)); o.status='sent'; toast('Sent'); }
+        catch(e){ o.status='failed'; toast('Still failing — check signal / settings'); }
+        save('po_orders', orders); renderList();
+      };
+    }
     el.appendChild(d);
   });
 }
+$('resendAll').onclick = async () => {
+  const unsent = orders.filter(o => o.status !== 'sent');
+  if (!unsent.length){ toast('Nothing to resend — all orders sent'); return; }
+  if (!confirm('Resend '+unsent.length+' unsent order'+(unsent.length>1?'s':'')+' to Telegram? Already-sent orders are skipped.')) return;
+  for (const o of unsent){
+    o.status = 'pending'; renderList();
+    try { await sendTG(orderMessage(o)); o.status = 'sent'; }
+    catch(e){ o.status = 'failed'; }
+    save('po_orders', orders);
+  }
+  renderList();
+  const left = orders.filter(o => o.status !== 'sent').length;
+  toast(left ? left+' still failing — check signal / settings' : 'All orders sent');
+};
 $('shareAll').onclick = () => {
   if (!orders.length){ toast('Nothing to share'); return; }
   shareText(orders.map(orderMessage).join('\n\n————\n\n'));
